@@ -92,6 +92,8 @@ def balance_scrape(ticker_input):
             debt_dict_func['Long-Term Debt'] = row.get_text().split()[4:]
         elif 'Total Equity' in row.get_text():
             debt_dict_func['Total Equity'] = row.get_text().split()[4:]
+        elif 'Total Current Liabilities' in row.get_text():
+            debt_dict_func['Total Current Liabilities'] = row.get_text().split()[6:]
     return debt_dict_func, intraday_price_scraped
 
 def equity_value_growth_calc(shares_outstanding,intraday_price):
@@ -103,14 +105,15 @@ def equity_value_growth_calc(shares_outstanding,intraday_price):
     equity_value_growth_func = str(round(equity_value_growth_func)) + 'B'
     return equity_value_growth_func
 
-def ROIC_calc(net_income, dividends_payed, total_debt, total_equity):
+def ROIC_calc(net_income, dividends_payed, total_debt, total_current_liabilities, total_equity):
     ROIC = []
-    for (net_income_single, dividends_payed_single, total_debt_single, total_equity_single) in zip(net_income,dividends_payed,total_debt,total_equity):
+    for (net_income_single, dividends_payed_single, total_debt_single,total_current_liabilities_single, total_equity_single) in zip(net_income,dividends_payed,total_debt,total_current_liabilities,total_equity):
         net_income_single = float(net_income_single[0:-1])
         dividends_payed_single = float(dividends_payed_single[1:-2])
         total_debt_single = float(total_debt_single[0:-1])
         total_equity_single = float(total_equity_single[0:-1])
-        ROIC.append((net_income_single - dividends_payed_single)/(total_debt_single + total_equity_single))
+        total_current_liabilities_single = float(total_current_liabilities_single[0:-1])
+        ROIC.append((net_income_single - dividends_payed_single)/(total_debt_single + total_current_liabilities_single + total_equity_single))
     return ROIC
 
 def export_to_pdf(merged_dict_financials_func):
@@ -133,7 +136,7 @@ income_dict, dates = income_scrape(ticker)
 cash_dict = cash_scrape(ticker)
 debt_dict, intraday_price_currently = balance_scrape(ticker)
 eqity_value_growth = equity_value_growth_calc(income_dict['Diluted Shares Outstanding'], float(intraday_price_currently) )
-ROIC_stock = ROIC_calc(income_dict['Net Income'],cash_dict['Cash Dividends Paid - Total'],debt_dict['Long-Term Debt'],debt_dict['Total Equity'])
-
+ROIC_stock = ROIC_calc(income_dict['Net Income'],cash_dict['Cash Dividends Paid - Total'],debt_dict['Long-Term Debt'],debt_dict['Total Current Liabilities'],debt_dict['Total Equity'])
+print(ROIC_stock)
 merged_dict_financials = {**income_dict, **cash_dict, **debt_dict}
 export_to_pdf(merged_dict_financials)
