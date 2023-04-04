@@ -32,7 +32,9 @@ def income_scrape(ticker_input):
         elif 'Sales Growth' in row.get_text():
             income_dict_func['Sales Growth'] = row.get_text().split()[4:]
         elif 'Sales/Revenue' in row.get_text():
-            income_dict_func['Sales/Revenue']= row.get_text().split()[2:]
+            income_dict_func['Sales/Revenue'] = row.get_text().split()[2:]
+        elif 'Diluted Shares Outstanding' in row.get_text():
+            income_dict_func['Diluted Shares Outstanding'] = row.get_text().split()[6:]
     return income_dict_func, dates_list
 
 def cash_scrape(ticker_input):
@@ -70,6 +72,8 @@ def balance_scrape(ticker_input):
     page = requests.get(url_balance, timeout=5)
     soup = BeautifulSoup(page.content, 'html.parser')
 
+    intraday_price_scraped = soup.find('div',class_='intraday__data').get_text().split()[1]
+
     table = soup.find('table',attrs=
                       {'aria-label':"Financials - Liabilities & Shareholders' Equity data table"})
     #dates = table.find('thead', class_='table__header').get_text().split()[2:7]
@@ -82,7 +86,16 @@ def balance_scrape(ticker_input):
     for row in rows:
         if 'Long-Term Debt' in row.get_text() and 'Capitalized' not in row.get_text():
             debt_dict_func['Long-Term Debt'] = row.get_text().split()[4:]
-    return debt_dict_func
+    return debt_dict_func, intraday_price_scraped
+
+def equity_value_growth_calc(shares_outstanding,intraday_price):
+    '''
+    Calculates equity value growth from number of outstanding shares and current stock price
+    '''
+    shares_outstanding = shares_outstanding[-1]
+    equity_value_growth_func = (float(shares_outstanding[0:-1])*intraday_price)
+    equity_value_growth_func = str(round(equity_value_growth_func)) + 'B'
+    return equity_value_growth_func
 
 def export_to_pdf(merged_dict_financials_func):
     '''
@@ -95,13 +108,15 @@ def export_to_pdf(merged_dict_financials_func):
     ax.axis('off')
     ax.table(cellText=complete_table.values, rowLabels=complete_table.index.values, colLabels=complete_table.columns, loc='center')
 
-
     pdf_file = PdfPages(f"Scraped-data-{ticker.upper()}.pdf")
     pdf_file.savefig(fig, bbox_inches='tight')
     pdf_file.close()
 
+
 income_dict, dates = income_scrape(ticker)
 cash_dict = cash_scrape(ticker)
-debt_dict = balance_scrape(ticker)
+debt_dict, intraday_price_currently = balance_scrape(ticker)
+eqity_value_growth = equity_value_growth_calc(income_dict['Diluted Shares Outstanding'], float(intraday_price_currently) )
+print(eqity_value_growth)
 merged_dict_financials = {**income_dict, **cash_dict, **debt_dict}
 export_to_pdf(merged_dict_financials)
